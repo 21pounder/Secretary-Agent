@@ -6,3 +6,6 @@ dist
 .env 
 *.db 
 *.db-* 
+chroma-data/
+data/*.pdf
+data/*.txt 
