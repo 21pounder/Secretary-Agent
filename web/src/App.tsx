@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Loader2, AlertCircle, PlusSquare } from 'lucide-react';
+import { Send, Bot, User, Loader2, AlertCircle, PlusSquare, Menu, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { apiClient } from './api/client';
 import type { Message } from './api/client';
@@ -33,6 +33,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Get current session
@@ -161,13 +162,40 @@ function App() {
 
   return (
     <div className="flex h-screen" style={{ backgroundColor: '#FAFAFA', fontFamily: 'Inter, system-ui, sans-serif' }}>
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-[280px] flex-shrink-0 border-r" style={{ backgroundColor: '#1A1A1A', borderColor: '#333333' }}>
+      <aside 
+        className={cn(
+          "fixed lg:static inset-y-0 left-0 z-50 w-[280px] flex-shrink-0 border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ backgroundColor: '#1A1A1A', borderColor: '#333333' }}
+      >
         <div className="h-full flex flex-col">
+          {/* Mobile Close Button */}
+          <div className="lg:hidden flex justify-end p-4">
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+          </div>
+
           <div className="flex flex-col h-full p-5 space-y-3">
             {/* New Chat Button */}
             <button
-              onClick={handleNewChat}
+              onClick={() => {
+                handleNewChat();
+                setSidebarOpen(false);
+              }}
               className="w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg"
               style={{ backgroundColor: '#2A2A2A', color: 'white', border: '1px solid #404040' }}
             >
@@ -272,53 +300,61 @@ function App() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col" style={{ backgroundColor: '#FFFFFF' }}>
         {/* Header */}
-        <header className="flex items-center justify-between px-6 py-5 border-b shadow-sm" style={{ borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}>
+        <header className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b shadow-sm" style={{ borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}>
           <div className="flex items-center space-x-3">
-            <div className="rounded-xl p-3" style={{ backgroundColor: '#1A1A1A' }}>
-              <Bot className="w-6 h-6 text-white" />
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <Menu className="w-6 h-6" style={{ color: '#1A1A1A' }} />
+            </button>
+
+            <div className="rounded-xl p-2 sm:p-3" style={{ backgroundColor: '#1A1A1A' }}>
+              <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold" style={{ color: '#1A1A1A' }}>
+              <h1 className="text-base sm:text-xl font-bold" style={{ color: '#1A1A1A' }}>
                 DataAnalyze Helper
               </h1>
               <div className="flex items-center space-x-2">
                 <div
                   className={cn("w-2 h-2 rounded-full", isOnline ? "bg-green-500 animate-pulse" : "bg-red-500")}
                 />
-                <span className="text-sm font-medium" style={{ color: '#6B7280' }}>
+                <span className="text-xs sm:text-sm font-medium" style={{ color: '#6B7280' }}>
                   {isOnline ? 'Online' : 'Offline'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="text-base font-semibold" style={{ color: '#4B5563' }}>
+          <div className="hidden md:block text-base font-semibold" style={{ color: '#4B5563' }}>
             {currentSession?.title || 'New Conversation'}
           </div>
         </header>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto px-6 py-6" style={{ backgroundColor: '#F9FAFB' }}>
-          <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6" style={{ backgroundColor: '#F9FAFB' }}>
+          <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
             {messages.map((message, index) => (
               <div
                 key={index}
                 className={cn(
-                  "flex gap-4 items-start",
+                  "flex gap-2 sm:gap-4 items-start",
                   message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                 )}
               >
                 {/* Avatar */}
                 <div
-                  className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+                  className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shadow-sm"
                   style={{
                     backgroundColor: message.role === 'assistant' ? '#1A1A1A' : '#4A4A4A',
                   }}
                 >
                   {message.role === 'assistant' ? (
-                    <Bot className="w-5 h-5 text-white" />
+                    <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   ) : (
-                    <User className="w-5 h-5 text-white" />
+                    <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   )}
                 </div>
 
@@ -326,7 +362,7 @@ function App() {
                 <div className={cn("flex-1 max-w-2xl", message.role === 'user' && 'flex justify-end')}>
                   <div
                     className={cn(
-                      "rounded-2xl px-5 py-4 shadow-sm",
+                      "rounded-2xl px-3 py-3 sm:px-5 sm:py-4 shadow-sm",
                       message.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'
                     )}
                     style={{
@@ -335,10 +371,10 @@ function App() {
                     }}
                   >
                     <div
-                      className={cn("prose prose-base max-w-none", message.role === 'user' && 'prose-invert')}
+                      className={cn("prose prose-sm sm:prose-base max-w-none", message.role === 'user' && 'prose-invert')}
                       style={{ 
                         color: message.role === 'user' ? '#FFFFFF' : '#1F2937',
-                        fontSize: '15px',
+                        fontSize: '14px',
                         lineHeight: '1.6'
                       }}
                     >
@@ -351,17 +387,17 @@ function App() {
 
             {/* Loading Indicator */}
             {isLoading && (
-              <div className="flex gap-4 items-start">
+              <div className="flex gap-2 sm:gap-4 items-start">
                 <div
-                  className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+                  className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shadow-sm"
                   style={{ backgroundColor: '#1A1A1A' }}
                 >
-                  <Bot className="w-5 h-5 text-white" />
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm" style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB' }}>
-                  <div className="flex items-center space-x-3">
-                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#4A4A4A' }} />
-                    <span className="text-base font-medium" style={{ color: '#6B7280' }}>
+                <div className="rounded-2xl rounded-tl-sm px-3 py-3 sm:px-5 sm:py-4 shadow-sm" style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB' }}>
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" style={{ color: '#4A4A4A' }} />
+                    <span className="text-sm sm:text-base font-medium" style={{ color: '#6B7280' }}>
                       Thinking...
                     </span>
                   </div>
@@ -371,13 +407,13 @@ function App() {
 
             {/* Error Display */}
             {error && (
-              <div className="flex gap-4 items-start">
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: '#EF4444' }}>
-                  <AlertCircle className="w-5 h-5 text-white" />
+              <div className="flex gap-2 sm:gap-4 items-start">
+                <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: '#EF4444' }}>
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5' }}>
-                  <p className="text-base font-semibold" style={{ color: '#DC2626' }}>Connection Error</p>
-                  <p className="text-[15px] mt-1" style={{ color: '#B91C1C' }}>{error}</p>
+                <div className="rounded-2xl rounded-tl-sm px-3 py-3 sm:px-5 sm:py-4 shadow-sm" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5' }}>
+                  <p className="text-sm sm:text-base font-semibold" style={{ color: '#DC2626' }}>Connection Error</p>
+                  <p className="text-xs sm:text-[15px] mt-1" style={{ color: '#B91C1C' }}>{error}</p>
                 </div>
               </div>
             )}
@@ -387,10 +423,10 @@ function App() {
         </div>
 
         {/* Input Area */}
-        <div className="border-t px-6 py-6" style={{ borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}>
+        <div className="border-t px-3 sm:px-6 py-3 sm:py-6" style={{ borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}>
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative">
             <div
-              className="flex items-center gap-3 px-5 py-4 rounded-xl shadow-lg border-2 transition-all focus-within:border-gray-400"
+              className="flex items-center gap-2 sm:gap-3 px-3 py-2 sm:px-5 sm:py-4 rounded-xl shadow-lg border-2 transition-all focus-within:border-gray-400"
               style={{
                 backgroundColor: '#FFFFFF',
                 borderColor: '#E5E7EB',
@@ -401,10 +437,10 @@ function App() {
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                  className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                   aria-label="Open emoji picker"
                 >
-                  <span className="text-2xl leading-none" role="img" aria-label="emoji">😊</span>
+                  <span className="text-xl sm:text-2xl leading-none" role="img" aria-label="emoji">😊</span>
                 </button>
 
                 {showEmojiPicker && (
@@ -417,11 +453,11 @@ function App() {
                     
                     {/* Emoji Picker Popup */}
                     <div
-                      className="absolute bottom-full left-0 mb-3 rounded-2xl shadow-2xl border z-50 animate-slide-up overflow-hidden"
+                      className="absolute bottom-full left-0 mb-2 sm:mb-3 rounded-2xl shadow-2xl border z-50 animate-slide-up overflow-hidden"
                       style={{ 
                         backgroundColor: '#FFFFFF', 
                         borderColor: '#E5E7EB',
-                        width: '352px'
+                        width: 'min(320px, calc(100vw - 2rem))'
                       }}
                     >
                       <div className="grid grid-cols-8 gap-0">
@@ -430,7 +466,7 @@ function App() {
                             key={emoji}
                             type="button"
                             onClick={() => handleEmojiClick(emoji)}
-                            className="w-11 h-11 flex items-center justify-center text-2xl hover:bg-blue-500 hover:scale-110 active:scale-95 transition-all border border-gray-100"
+                            className="w-10 h-10 flex items-center justify-center text-xl sm:text-2xl hover:bg-blue-500 hover:scale-110 active:scale-95 transition-all border border-gray-100"
                             style={{ 
                               fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
                               backgroundColor: index === 5 ? '#E3F2FD' : '#FFFFFF'
@@ -452,8 +488,8 @@ function App() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Type a new message here..."
-                className="flex-1 bg-transparent border-none outline-none text-base font-medium placeholder:font-normal"
-                style={{ color: '#1F2937', fontSize: '15px' }}
+                className="flex-1 bg-transparent border-none outline-none text-sm sm:text-base font-medium placeholder:font-normal"
+                style={{ color: '#1F2937' }}
               />
 
               {/* Send Button */}
@@ -461,19 +497,19 @@ function App() {
                 type="submit"
                 disabled={!input.trim() || isLoading}
                 className={cn(
-                  "flex-shrink-0 p-3 rounded-lg transition-all",
+                  "flex-shrink-0 p-2 sm:p-3 rounded-lg transition-all",
                   !input.trim() || isLoading
                     ? "opacity-40 cursor-not-allowed bg-gray-200"
-                    : "hover:scale-110 shadow-md"
+                    : "hover:scale-110 shadow-md active:scale-95"
                 )}
                 style={{
                   backgroundColor: input.trim() && !isLoading ? '#1A1A1A' : undefined,
                 }}
               >
                 {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#4A4A4A' }} />
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" style={{ color: '#4A4A4A' }} />
                 ) : (
-                  <Send className="w-5 h-5 text-white" />
+                  <Send className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 )}
               </button>
             </div>
