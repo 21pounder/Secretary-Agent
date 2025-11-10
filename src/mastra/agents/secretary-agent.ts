@@ -11,9 +11,36 @@ import { weatherTool } from '../tools/weather-tool';
 import { knowledgeBookAgent } from './knowledge-book-agent';
 import { getKnowledgeBookCacheStats } from './knowledge-book-agent';
 import { suanmingClient } from '../mcp/suanming-client';
-const sportNewsTools = await sportNewsClient.getTools();
-const railWay12306Tools = await railWay12306Client.getTools();
-const suanmingTools = await suanmingClient.getTools();
+
+// 🔧 添加错误处理：允许 MCP 失败时继续启动
+let sportNewsTools = {};
+let railWay12306Tools = {};
+let suanmingTools = {};
+
+try {
+  console.log('🔌 正在连接 Sport News MCP...');
+  sportNewsTools = await sportNewsClient.getTools();
+  console.log('✅ Sport News MCP 连接成功');
+} catch (error: any) {
+  console.warn('⚠️  Sport News MCP 连接失败，跳过:', error.message);
+  console.warn('   提示：如果缺少 uv，运行: curl -LsSf https://astral.sh/uv/install.sh | sh');
+}
+
+try {
+  console.log('🔌 正在连接 12306 Railway MCP...');
+  railWay12306Tools = await railWay12306Client.getTools();
+  console.log('✅ 12306 Railway MCP 连接成功');
+} catch (error: any) {
+  console.warn('⚠️  12306 Railway MCP 连接失败，跳过:', error.message);
+}
+
+try {
+  console.log('🔌 正在连接 Suanming MCP...');
+  suanmingTools = await suanmingClient.getTools();
+  console.log('✅ Suanming MCP 连接成功');
+} catch (error: any) {
+  console.warn('⚠️  Suanming MCP 连接失败，跳过:', error.message);
+}
 export const secretaryAgent = new Agent({
   name: 'Secretary Agent',
   description: `

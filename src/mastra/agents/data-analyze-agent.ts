@@ -3,7 +3,18 @@ import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
 import { mysqlClient } from '../mcp/mysql-client';
 
-const mysqlTools = await mysqlClient.getTools();
+// 🔧 添加错误处理：允许 MCP 失败时继续启动
+let mysqlTools = {};
+
+try {
+  console.log('🔌 正在连接 MySQL Database MCP...');
+  mysqlTools = await mysqlClient.getTools();
+  console.log('✅ MySQL Database MCP 连接成功');
+} catch (error: any) {
+  console.warn('⚠️  MySQL Database MCP 连接失败，跳过:', error.message);
+  console.warn('   提示：检查环境变量 MYSQL_DSN 是否配置正确');
+}
+
 const isMySQLAvailable = Object.keys(mysqlTools).length > 0;
 
 if (!isMySQLAvailable) {

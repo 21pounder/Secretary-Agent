@@ -3,7 +3,17 @@ import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
 import { hotNewsClient } from '../mcp/hot-news-client';
 
-const hotNewsTools = await hotNewsClient.getTools();
+// 🔧 添加错误处理：允许 MCP 失败时继续启动
+let hotNewsTools = {};
+
+try {
+  console.log('🔌 正在连接 Hot News MCP...');
+  hotNewsTools = await hotNewsClient.getTools();
+  console.log('✅ Hot News MCP 连接成功');
+} catch (error: any) {
+  console.warn('⚠️  Hot News MCP 连接失败，跳过:', error.message);
+  console.warn('   提示：如果缺少 uv，运行: curl -LsSf https://astral.sh/uv/install.sh | sh');
+}
 
 const hotNewsAgent = new Agent({
   name: 'Hot News Agent',

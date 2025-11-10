@@ -1,10 +1,16 @@
 export const MCP_CONFIG = {
   servers: {
     "mcp-server-hotnews": {
-      "command": "npx",
-      "args": ["-y", "exa-mcp-server"],
+      "command": "uvx",
+      "args": [
+        "juhe-mcp-proxy",
+        "https://mcp.juhe.cn/sse?token=MjbpXHGZu7dQgH9dsuFmFiiXnQcgZrxtriNep3VF3Y0EvC"
+      ],
       "env": {
-        "EXA_API_KEY": process.env.EXA_API_KEY || ""
+        "LOG_LEVEL": "CRITICAL",
+        "UV_HTTP_TIMEOUT": "120",  // 增加超时时间到 120 秒
+        "UV_INDEX_URL": "https://pypi.tuna.tsinghua.edu.cn/simple",  // 使用清华镜像源
+        "PIP_INDEX_URL": "https://pypi.tuna.tsinghua.edu.cn/simple"
       }
     },
     "12306-mcp": {
@@ -47,7 +53,10 @@ export const MCP_CONFIG = {
       "https://mcp.juhe.cn/sse?token=MjbpXHGZu7dQgH9dsuFmFiiXnQcgZrxtriNep3VF3Y0EvC"
     ],
     "env": {
-      "LOG_LEVEL": "CRITICAL"
+      "LOG_LEVEL": "CRITICAL",
+      "UV_HTTP_TIMEOUT": "120",  // 增加超时时间到 120 秒
+      "UV_INDEX_URL": "https://pypi.tuna.tsinghua.edu.cn/simple",  // 使用清华镜像源
+      "PIP_INDEX_URL": "https://pypi.tuna.tsinghua.edu.cn/simple"
     }
   },
     

@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run test:mem0:*)",
+      "Bash(npm run test:sql-sandbox:*)",
+      "mcp__linear-server__create_comment",
+      "Bash(cat:*)",
+      "mcp__chrome-devtools__list_pages",
+      "mcp__chrome-devtools__navigate_page",
+      "Bash(npm run dev:*)",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__performance_start_trace",
+      "mcp__chrome-devtools__performance_analyze_insight",
+      "mcp__chrome-devtools__list_network_requests",
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__get_console_message",
+      "Bash(npm run index-dmbj:*)",
+      "Bash(curl:*)",
+      "Bash(npm run test:knowledge-book:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "spinnerTipsEnabled": true
+}
