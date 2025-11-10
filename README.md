@@ -23,7 +23,7 @@ An intelligent multi-agent assistant built on the Mastra framework, integrating 
 - 📰 Real-time trending news from Chinese platforms
 - ⚽ Multi-league sports statistics
 - 🚄 Train ticket search and trip planning
-- 📖 **RAG-based employee handbook Q&A with ChromaDB**
+- 📖 **RAG-based Q&A with Milvus vector database** (Employee Handbook & Knowledge Book)
 - 🤖 Intelligent Agent-to-Agent collaboration (A2A)
 - 💾 Conversation memory with LibSQL
 
@@ -31,7 +31,7 @@ An intelligent multi-agent assistant built on the Mastra framework, integrating 
 
 - **Node.js** >= 20.9.0
 - **MySQL** (optional, for data analysis features)
-- **ChromaDB** (for RAG features, can run via Docker)
+- **Milvus** (for RAG features, can run via Docker)
 - API Keys for various services (see configuration below)
 
 ## 🚀 Quick Start
@@ -57,10 +57,15 @@ Edit `.env` with your configuration:
 OPENAI_API_KEY=sk-your-actual-api-key
 OPENAI_BASE_URL=https://api.openai.com/v1
 
-# Chroma Vector Database (for RAG)
-CHROMA_HOST=localhost
-CHROMA_PORT=8000
-CHROMA_COLLECTION=employee_rules
+# Milvus Vector Database (for RAG)
+MILVUS_HOST=localhost
+MILVUS_PORT=19530
+EMPLOYEE_RULES_COLLECTION=employee_rules
+MILVUS_COLLECTION=knowledge_book
+
+# Redis Cache (optional, for query caching)
+REDIS_HOST=localhost
+REDIS_PORT=6379
 
 # EXA API (Hot News) - Get from https://exa.ai
 EXA_API_KEY=your-exa-api-key
@@ -72,58 +77,100 @@ BALLDONTLIE_API_KEY=your-balldontlie-api-key
 MYSQL_DSN=mysql://username:password@host:port/database?sslmode=disable
 ```
 
-### 3. Setup ChromaDB (for RAG features)
+### 3. Setup Milvus (for RAG features)
 
-#### Option A: Docker (Recommended)
-
-```bash
-docker run -d -p 8000:8000 \
-  -v ./chroma-data:/chroma/chroma \
-  --name chromadb \
-  chromadb/chroma:latest
-```
-
-#### Option B: Python Installation
+#### Docker (Recommended)
 
 ```bash
-pip install chromadb
-chroma run --host localhost --port 8000 --path ./chroma-data
+# Milvus Standalone
+docker run -d \
+  --name milvus-standalone \
+  -p 19530:19530 \
+  -p 9091:9091 \
+  -p 2379:2379 \
+  -e ETCD_USE_EMBED=true \
+  -e COMMON_STORAGETYPE=local \
+  milvusdb/milvus:v2.4.4 \
+  milvus run standalone
+
+# Redis (for caching)
+docker run -d \
+  --name redis \
+  -p 6379:6379 \
+  redis:latest
 ```
 
-### 4. Index Employee Handbook (First Time Setup)
+### 4. Index Documents (First Time Setup)
 
-Place your employee handbook document in `data/employee-rules.txt` or `data/employee-rules.pdf`, then run:
+#### Index Employee Handbook
+
+Place your employee handbook in `data/employee-rules.txt` (or `.pdf`), then run:
 
 ```bash
 npm run index-pdf
 ```
 
+#### Index Knowledge Book
+
+Place your knowledge book in `data/dmbj.txt`, then run:
+
+```bash
+npm run index-dmbj
+```
+
 Expected output:
 ```
-🚀 Starting employee rules indexing...
-📄 Reading document: data/employee-rules.txt
-📚 Extracted 10000+ characters
-✂️  Split into 28 chunks
-🧮 Generating embeddings...
-✅ Generated 28 embeddings
-📦 Indexing to Chroma: employee_rules
-✅ Indexing complete!
+📘 员工手册索引工具 (Milvus)
+📍 Milvus 地址: localhost:19530
+📂 Collection: employee_rules
+✂️  分割成 28 个块
+🧮 生成嵌入向量...
+✅ 索引完成!
 ```
 
 ### 5. Run the Project
 
-#### Development Mode
+#### Backend (Mastra Server)
+
+**Development Mode**
 ```bash
 npm run dev
 ```
 
 Server starts at `http://localhost:4111`
 
-#### Production Build
+**Production Build**
 ```bash
 npm run build
 npm start
 ```
+
+#### Frontend (Web UI) 🎨
+
+We provide a modern React-based web interface for interacting with the agents:
+
+```bash
+# Navigate to web directory
+cd web
+
+# Install dependencies (first time only)
+npm install
+
+# Start development server
+npm run dev
+```
+
+Frontend runs at **`http://localhost:3000`**
+
+**Features:**
+- 💬 ChatGPT-style chat interface
+- 🌓 Dark mode support
+- 📱 Responsive design (mobile & desktop)
+- ✨ Markdown message rendering
+- ⌨️ Keyboard shortcuts (Enter to send, Shift+Enter for newline)
+- 🔄 Real-time backend connection status
+
+See [`web/README.md`](./web/README.md) for detailed frontend documentation.
 
 ## 🏗️ Project Structure
 
@@ -140,16 +187,27 @@ DataAnalyzeHelper/
 │       │   ├── hot-news-client.ts
 │       │   ├── 12306-client.ts
 │       │   ├── mysql-client.ts
-│       │   └── sport-news-client.ts
+│       │   ├── sport-news-client.ts
+│       │   └── mem0-client.ts
 │       ├── config/              # Configuration
 │       ├── tools/               # Custom tools
 │       ├── workflows/           # Workflows
 │       └── index.ts             # Mastra instance
+├── web/                         # 🎨 Web Frontend (NEW!)
+│   ├── src/
+│   │   ├── api/client.ts        # Mastra API client
+│   │   ├── App.tsx              # Main chat component
+│   │   └── main.tsx             # Entry point
+│   ├── vite.config.ts
+│   └── package.json
 ├── data/                        # Documents for RAG
 │   └── employee-rules.txt
 ├── scripts/                     # Utility scripts
-│   └── index-pdf.ts             # Document indexing
-├── chroma-data/                 # ChromaDB storage (ignored)
+│   ├── index-pdf.ts             # Document indexing
+│   ├── test-mem0.ts             # Test Mem0 integration
+│   └── test-knowledge-book.ts   # Test knowledge book agent
+├── docs/                        # Documentation
+├── milvus-data/                 # Milvus storage (if local, ignored)
 ├── env.example                  # Environment template
 ├── package.json
 └── README.md
@@ -179,9 +237,9 @@ Fetches trending topics from:
 
 ### Employee Rules Agent (RAG)
 AI-powered HR assistant features:
-- **Vector Search**: Semantic similarity search using ChromaDB
-- **Hybrid Retrieval**: Combines vector search + keyword matching
-- **Multi-Source Recall**: RRF (Reciprocal Rank Fusion) for better accuracy
+- **Vector Search**: Semantic similarity search using Milvus
+- **Smart Caching**: Redis-based query cache with similarity matching
+- **Query Optimization**: Query rewriting and reranking for better accuracy
 - **Bilingual Support**: Chinese and English queries
 - **Source Citations**: Always quotes handbook references
 
@@ -224,41 +282,51 @@ User Query
     ↓
 Employee Rules Agent
     ↓
-Multi-Source Retrieval (Hybrid Search)
-    ├─→ Vector Search (Semantic)
-    ├─→ Keyword Search (Exact Match)
-    └─→ RRF Fusion
-         ↓
-ChromaDB (Vector Database)
+Query Input
+    ↓
+Redis Cache Check (Similarity-based)
+    ↓ [Cache Miss]
+Query Rewriting (Optional)
+    ↓
+Vector Search (Milvus)
+    ↓
+Reranking (Optional)
     ↓
 Top-K Relevant Chunks
     ↓
 GPT-4o-mini (Answer Generation)
     ↓
 Structured Answer + Citations
+    ↓
+Cache Result
 ```
 
 ### RAG Optimization Features
 
-1. **Hybrid Retrieval**
-   - Vector search for semantic understanding
-   - Keyword extraction for precise matching
-   - RRF fusion for optimal results
+1. **Smart Caching**
+   - Redis-based query cache
+   - Similarity-based cache hits (cosine similarity > 0.95)
+   - TTL: 1 hour (configurable)
 
-2. **Smart Chunking**
+2. **Query Rewriting** (Optional)
+   - Generate multiple query variants
+   - Improves retrieval recall
+   - Configurable count (default: 2)
+
+3. **Reranking** (Optional)
+   - Auto: Simple queries → embedding, complex → LLM
+   - Embedding: Fast cosine similarity reranking
+   - LLM: GPT-4o-mini semantic scoring
+
+4. **Smart Chunking**
    - Chunk size: 512 characters
    - Overlap: 50 characters
    - Preserves context continuity
 
-3. **Embedding Model**
+5. **Embedding Model**
    - Model: `text-embedding-3-small`
    - Dimensions: 1536
    - Provider: OpenAI
-
-4. **Response Quality**
-   - Direct quotes from source material
-   - Language matching (Chinese ↔ English)
-   - Clear "not found" handling
 
 ## 🔧 MCP Service Configuration
 
@@ -276,10 +344,16 @@ Supported services:
 - Location: `mastra.db` (ignored in git)
 - Stores: Agent conversations, context, observability
 
-### ChromaDB (Vector Store)
-- Location: `chroma-data/` (ignored in git)
-- Stores: Document embeddings, metadata
-- Persistence: Enabled via Docker volume or local directory
+### Milvus (Vector Store)
+- Docker container with persistent volumes
+- Stores: Document embeddings (Employee Rules + Knowledge Book)
+- Collections: `employee_rules`, `knowledge_book`
+- Index: IVF_FLAT with L2 distance
+
+### Redis (Query Cache)
+- Docker container
+- Stores: Query embeddings and results
+- TTL: 1 hour per query
 
 ## 🔒 Security Best Practices
 
@@ -334,7 +408,8 @@ agents: {
 
 - **Framework**: [Mastra](https://mastra.ai) - AI Agent Framework
 - **AI Model**: OpenAI GPT-4o-mini
-- **Vector DB**: ChromaDB
+- **Vector DB**: Milvus
+- **Cache**: Redis
 - **Embedding**: OpenAI text-embedding-3-small
 - **Database**: LibSQL (local), MySQL (analysis)
 - **Protocol**: MCP (Model Context Protocol)
@@ -343,31 +418,52 @@ agents: {
 
 ## 🐛 Troubleshooting
 
-### ChromaDB Connection Failed
+### Milvus Connection Failed
 ```bash
-# Check if ChromaDB is running
-curl http://localhost:8000/api/v1/heartbeat
+# Check if Milvus is running
+docker ps | grep milvus
 
-# Restart ChromaDB
-docker restart chromadb
+# Restart Milvus
+docker restart milvus-standalone
+
+# Check Milvus logs
+docker logs milvus-standalone
 ```
 
 ### Indexing Fails
 ```bash
 # Check file exists
 ls -la data/employee-rules.txt
+ls -la data/dmbj.txt
 
 # Check OpenAI API key
 echo $OPENAI_API_KEY
+
+# Re-run indexing
+npm run index-pdf      # Employee Rules
+npm run index-dmbj     # Knowledge Book
 ```
 
 ### RAG Returns Empty Results
 ```bash
-# Verify collection exists
-curl http://localhost:8000/api/v1/collections
+# Check if collections exist (using Python)
+from pymilvus import connections, utility
+connections.connect(host='localhost', port='19530')
+print(utility.list_collections())
 
 # Re-index documents
 npm run index-pdf
+npm run index-dmbj
+```
+
+### Redis Cache Issues
+```bash
+# Check Redis connection
+docker ps | grep redis
+redis-cli -h localhost -p 6379 ping
+
+# Clear cache
+redis-cli -h localhost -p 6379 FLUSHDB
 ```
 
 ## 📄 License

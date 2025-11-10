@@ -32,6 +32,24 @@ export const MCP_CONFIG = {
       "env": {
         "BALLDONTLIE_API_KEY": process.env.BALLDONTLIE_API_KEY || ""
       }
+    },
+    "wenyili-iching-mcp": {
+      "args": [
+        "-y",
+        "iching-mcp"
+      ],
+      "command": "npx"
+    },
+    "juhe-mcp-server": {
+    "command": "uvx",
+    "args": [
+      "juhe-mcp-proxy",
+      "https://mcp.juhe.cn/sse?token=MjbpXHGZu7dQgH9dsuFmFiiXnQcgZrxtriNep3VF3Y0EvC"
+    ],
+    "env": {
+      "LOG_LEVEL": "CRITICAL"
     }
+  },
+    
   }
 };

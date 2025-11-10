@@ -1,46 +1,52 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
+
 /**
- * 索引 employee-rules.pdf 到 Chroma 向量数据库
- * 运行方式：npx tsx scripts/index-pdf.ts
+ * 索引员工手册文档到 Milvus
+ * 运行方式：npm run index-pdf
  */
 
-// 加载环境变量
-import { config } from 'dotenv';
-config();
+import { config as loadEnv } from 'dotenv';
+loadEnv();
 
 import { indexEmployeeRules } from '../src/mastra/agents/employee-ruler-agent';
 
-console.log('🚀 开始索引员工规则文档到 Chroma...');
-console.log('📍 Chroma 地址: http://192.168.254.100:6333');
-console.log('📂 PDF 文件: data/employee-rules.pdf');
-console.log('🔑 OpenAI API Key:', process.env.OPENAI_API_KEY ? `${process.env.OPENAI_API_KEY.substring(0, 10)}...` : '❌ 未设置');
-console.log('🌐 OpenAI Base URL:', process.env.OPENAI_BASE_URL || '❌ 未设置（将使用默认 api.openai.com）');
-console.log('');
+async function main() {
+  console.log('==========================================');
+  console.log('📘 员工手册索引工具 (Milvus)');
+  console.log('==========================================\n');
 
-indexEmployeeRules()
-  .then(() => {
-    console.log('');
-    console.log('✅ 索引完成！');
-    console.log('');
-    console.log('📋 接下来可以：');
-    console.log('  1. 运行 npm run dev 启动服务');
-    console.log('  2. 通过 Secretary Agent 或 Employee Rules Agent 查询');
-    console.log('  3. 示例问题：');
-    console.log('     - "公司的年假政策是什么？"');
-    console.log('     - "What is the vacation policy?"');
-    console.log('');
+  // 显示配置信息
+  const milvusHost = process.env.MILVUS_HOST || 'localhost';
+  const milvusPort = process.env.MILVUS_PORT || '19530';
+  const milvusUrl = `${milvusHost}:${milvusPort}`;
+
+  console.log('📍 Milvus 地址:', milvusUrl);
+  console.log('📂 Collection:', process.env.EMPLOYEE_RULES_COLLECTION || 'employee_rules');
+  console.log('📄 文件路径: data/employee-rules.txt (或 .pdf)');
+  console.log('🔑 OpenAI API Key:', process.env.OPENAI_API_KEY ? `${process.env.OPENAI_API_KEY.substring(0, 10)}...` : '❌ 未设置');
+  console.log('🌐 OpenAI Base URL:', process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1 (默认)');
+  console.log('');
+  console.log('==========================================\n');
+
+  try {
+    await indexEmployeeRules();
+    console.log('\n✅ 索引成功！现在可以运行应用使用 Employee Rules Agent 了！');
     process.exit(0);
-  })
-  .catch((error) => {
-    console.error('');
-    console.error('❌ 索引失败:');
+  } catch (error: any) {
+    console.error('\n❌ 索引失败:');
     console.error(error);
-    console.error('');
-    console.error('💡 常见问题：');
-    console.error('  1. 确保 Chroma 服务正在运行 (http://192.168.254.100:6333)');
-    console.error('  2. 确保 PDF 文件存在 (data/employee-rules.pdf)');
-    console.error('  3. 确保设置了 OPENAI_API_KEY 环境变量');
-    console.error('');
+    console.error('\n💡 常见问题排查：');
+    console.error(`  1. Milvus 服务: 确保正在运行 (${milvusUrl})`);
+    console.error('  2. 数据文件: 确保存在 data/employee-rules.txt 或 .pdf');
+    console.error('  3. OpenAI API: 确保 OPENAI_API_KEY 已设置且有效');
+    console.error('  4. 网络连接: 如果无法连接 OpenAI，检查网络或代理设置');
+    console.error('\n📋 环境变量配置：');
+    console.error(`  MILVUS_HOST=${process.env.MILVUS_HOST || '未设置'}`);
+    console.error(`  MILVUS_PORT=${process.env.MILVUS_PORT || '未设置'}`);
+    console.error(`  OPENAI_API_KEY=${process.env.OPENAI_API_KEY ? '已设置' : '未设置'}`);
+    console.error(`  OPENAI_BASE_URL=${process.env.OPENAI_BASE_URL || '未设置'}`);
     process.exit(1);
-  });
+  }
+}
 
+main();

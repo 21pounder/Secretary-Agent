@@ -22,9 +22,9 @@ interface WeatherResponse {
 
 export const weatherTool = createTool({
   id: 'get-weather',
-  description: 'Get current weather for a location',
+  description: 'Get current weather for a location. Supports city names in both Chinese and English (e.g., "北京", "Beijing", "Shanghai", "上海"). Returns temperature in Celsius, humidity percentage, wind speed in km/h, and bilingual weather conditions.',
   inputSchema: z.object({
-    location: z.string().describe('City name'),
+    location: z.string().describe('City name in Chinese or English (e.g., "北京", "Beijing", "Shanghai")'),
   }),
   outputSchema: z.object({
     temperature: z.number(),
@@ -68,35 +68,38 @@ const getWeather = async (location: string) => {
 };
 
 function getWeatherCondition(code: number): string {
-  const conditions: Record<number, string> = {
-    0: 'Clear sky',
-    1: 'Mainly clear',
-    2: 'Partly cloudy',
-    3: 'Overcast',
-    45: 'Foggy',
-    48: 'Depositing rime fog',
-    51: 'Light drizzle',
-    53: 'Moderate drizzle',
-    55: 'Dense drizzle',
-    56: 'Light freezing drizzle',
-    57: 'Dense freezing drizzle',
-    61: 'Slight rain',
-    63: 'Moderate rain',
-    65: 'Heavy rain',
-    66: 'Light freezing rain',
-    67: 'Heavy freezing rain',
-    71: 'Slight snow fall',
-    73: 'Moderate snow fall',
-    75: 'Heavy snow fall',
-    77: 'Snow grains',
-    80: 'Slight rain showers',
-    81: 'Moderate rain showers',
-    82: 'Violent rain showers',
-    85: 'Slight snow showers',
-    86: 'Heavy snow showers',
-    95: 'Thunderstorm',
-    96: 'Thunderstorm with slight hail',
-    99: 'Thunderstorm with heavy hail',
+  const conditions: Record<number, { en: string; zh: string }> = {
+    0: { en: 'Clear sky', zh: '晴朗' },
+    1: { en: 'Mainly clear', zh: '基本晴朗' },
+    2: { en: 'Partly cloudy', zh: '局部多云' },
+    3: { en: 'Overcast', zh: '阴天' },
+    45: { en: 'Foggy', zh: '有雾' },
+    48: { en: 'Depositing rime fog', zh: '浓雾' },
+    51: { en: 'Light drizzle', zh: '小雨' },
+    53: { en: 'Moderate drizzle', zh: '中雨' },
+    55: { en: 'Dense drizzle', zh: '大雨' },
+    56: { en: 'Light freezing drizzle', zh: '小冻雨' },
+    57: { en: 'Dense freezing drizzle', zh: '大冻雨' },
+    61: { en: 'Slight rain', zh: '小雨' },
+    63: { en: 'Moderate rain', zh: '中雨' },
+    65: { en: 'Heavy rain', zh: '大雨' },
+    66: { en: 'Light freezing rain', zh: '小冻雨' },
+    67: { en: 'Heavy freezing rain', zh: '大冻雨' },
+    71: { en: 'Slight snow fall', zh: '小雪' },
+    73: { en: 'Moderate snow fall', zh: '中雪' },
+    75: { en: 'Heavy snow fall', zh: '大雪' },
+    77: { en: 'Snow grains', zh: '米雪' },
+    80: { en: 'Slight rain showers', zh: '阵雨' },
+    81: { en: 'Moderate rain showers', zh: '中阵雨' },
+    82: { en: 'Violent rain showers', zh: '暴雨' },
+    85: { en: 'Slight snow showers', zh: '小阵雪' },
+    86: { en: 'Heavy snow showers', zh: '大阵雪' },
+    95: { en: 'Thunderstorm', zh: '雷暴' },
+    96: { en: 'Thunderstorm with slight hail', zh: '雷暴伴小冰雹' },
+    99: { en: 'Thunderstorm with heavy hail', zh: '雷暴伴大冰雹' },
   };
-  return conditions[code] || 'Unknown';
+
+  // Return both English and Chinese for the agent to choose based on user's language
+  const condition = conditions[code] || { en: 'Unknown', zh: '未知' };
+  return `${condition.zh} / ${condition.en}`;
 }

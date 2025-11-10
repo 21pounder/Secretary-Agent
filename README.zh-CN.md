@@ -24,7 +24,7 @@
 - 📰 中文平台实时热点新闻
 - ⚽ 多联赛体育统计数据
 - 🚄 火车票搜索和行程规划
-- 📖 **基于 RAG 的员工手册智能问答（ChromaDB）**
+- 📖 **基于 RAG 的智能问答（Milvus 向量数据库）**（员工手册 & 知识库）
 - 🤖 智能体间协作（A2A）
 - 💾 基于 LibSQL 的对话记忆
 
@@ -32,7 +32,7 @@
 
 - **Node.js** >= 20.9.0
 - **MySQL**（可选，用于数据分析功能）
-- **ChromaDB**（用于 RAG 功能，可通过 Docker 运行）
+- **Milvus**（用于 RAG 功能，可通过 Docker 运行）
 - 各种服务的 API Keys（见配置部分）
 
 ## 🚀 快速开始
@@ -58,10 +58,15 @@ cp env.example .env
 OPENAI_API_KEY=sk-your-actual-api-key
 OPENAI_BASE_URL=https://api.openai.com/v1
 
-# Chroma 向量数据库（用于 RAG）
-CHROMA_HOST=localhost
-CHROMA_PORT=8000
-CHROMA_COLLECTION=employee_rules
+# Milvus 向量数据库（用于 RAG）
+MILVUS_HOST=localhost
+MILVUS_PORT=19530
+EMPLOYEE_RULES_COLLECTION=employee_rules
+MILVUS_COLLECTION=knowledge_book
+
+# Redis 缓存（可选，用于查询缓存）
+REDIS_HOST=localhost
+REDIS_PORT=6379
 
 # EXA API（热点新闻）- 从 https://exa.ai 获取
 EXA_API_KEY=your-exa-api-key
@@ -73,41 +78,54 @@ BALLDONTLIE_API_KEY=your-balldontlie-api-key
 MYSQL_DSN=mysql://username:password@host:port/database?sslmode=disable
 ```
 
-### 3. 配置 ChromaDB（RAG 功能必需）
+### 3. 配置 Milvus（RAG 功能必需）
 
-#### 方式 A：Docker（推荐）
-
-```bash
-docker run -d -p 8000:8000 \
-  -v ./chroma-data:/chroma/chroma \
-  --name chromadb \
-  chromadb/chroma:latest
-```
-
-#### 方式 B：Python 安装
+#### Docker（推荐）
 
 ```bash
-pip install chromadb
-chroma run --host localhost --port 8000 --path ./chroma-data
+# Milvus Standalone
+docker run -d \
+  --name milvus-standalone \
+  -p 19530:19530 \
+  -p 9091:9091 \
+  -p 2379:2379 \
+  -e ETCD_USE_EMBED=true \
+  -e COMMON_STORAGETYPE=local \
+  milvusdb/milvus:v2.4.4 \
+  milvus run standalone
+
+# Redis（用于缓存）
+docker run -d \
+  --name redis \
+  -p 6379:6379 \
+  redis:latest
 ```
 
-### 4. 索引员工手册（首次配置）
+### 4. 索引文档（首次配置）
 
-将你的员工手册文档放在 `data/employee-rules.txt` 或 `data/employee-rules.pdf`，然后运行：
+#### 索引员工手册
+
+将员工手册放在 `data/employee-rules.txt`（或 `.pdf`），然后运行：
 
 ```bash
 npm run index-pdf
 ```
 
+#### 索引知识库
+
+将知识库内容放在 `data/dmbj.txt`，然后运行：
+
+```bash
+npm run index-dmbj
+```
+
 预期输出：
 ```
-🚀 开始索引员工规则文档...
-📄 读取文档: data/employee-rules.txt
-📚 提取了 10000+ 字符
+📘 员工手册索引工具 (Milvus)
+📍 Milvus 地址: localhost:19530
+📂 Collection: employee_rules
 ✂️  分割成 28 个块
 🧮 生成嵌入向量...
-✅ 生成了 28 个嵌入向量
-📦 索引到 Chroma: employee_rules
 ✅ 索引完成！
 ```
 
@@ -150,7 +168,7 @@ DataAnalyzeHelper/
 │   └── employee-rules.txt
 ├── scripts/                     # 工具脚本
 │   └── index-pdf.ts             # 文档索引脚本
-├── chroma-data/                 # ChromaDB 存储（已忽略）
+├── milvus-data/                 # Milvus 存储（如本地部署，已忽略）
 ├── env.example                  # 环境变量模板
 ├── package.json
 └── README.md
@@ -180,9 +198,9 @@ DataAnalyzeHelper/
 
 ### Employee Rules Agent（员工手册智能体 - RAG）
 AI 驱动的 HR 助手功能：
-- **向量搜索**：使用 ChromaDB 进行语义相似度搜索
-- **混合检索**：结合向量搜索 + 关键词匹配
-- **多召回源**：使用 RRF（倒数排名融合）提高准确率
+- **向量搜索**：使用 Milvus 进行语义相似度搜索
+- **智能缓存**：基于 Redis 的查询缓存，相似度匹配
+- **查询优化**：查询改写和重排序，提高准确率
 - **双语支持**：中文和英文查询
 - **来源引用**：始终引用手册原文
 
@@ -223,43 +241,49 @@ AI 驱动的 HR 助手功能：
 ```
 用户提问
     ↓
-Employee Rules Agent
+Redis 缓存检查（相似度匹配）
+    ↓ [缓存未命中]
+查询改写（可选）
     ↓
-多召回源检索（混合搜索）
-    ├─→ 向量搜索（语义理解）
-    ├─→ 关键词搜索（精确匹配）
-    └─→ RRF 融合
-         ↓
-ChromaDB（向量数据库）
+向量搜索（Milvus）
+    ↓
+重排序（可选）
     ↓
 Top-K 相关文档块
     ↓
 GPT-4o-mini（答案生成）
     ↓
 结构化答案 + 原文引用
+    ↓
+缓存结果
 ```
 
 ### RAG 优化特性
 
-1. **混合检索**
-   - 向量搜索：语义理解
-   - 关键词提取：精确匹配
-   - RRF 融合：最优结果
+1. **智能缓存**
+   - 基于 Redis 的查询缓存
+   - 相似度匹配（余弦相似度 > 0.95）
+   - TTL：1 小时（可配置）
 
-2. **智能分块**
+2. **查询改写**（可选）
+   - 生成多个查询变体
+   - 提高检索召回率
+   - 可配置数量（默认：2）
+
+3. **重排序**（可选）
+   - Auto：简单查询 → 嵌入，复杂查询 → LLM
+   - Embedding：快速余弦相似度重排
+   - LLM：GPT-4o-mini 语义评分
+
+4. **智能分块**
    - 块大小：512 字符
    - 重叠：50 字符
    - 保持上下文连续性
 
-3. **嵌入模型**
+5. **嵌入模型**
    - 模型：`text-embedding-3-small`
    - 维度：1536
    - 提供商：OpenAI
-
-4. **响应质量**
-   - 直接引用原文
-   - 语言匹配（中文 ↔ 英文）
-   - 清晰的"未找到"处理
 
 ## 🔧 MCP 服务配置
 
@@ -277,10 +301,16 @@ GPT-4o-mini（答案生成）
 - 位置：`mastra.db`（已在 git 中忽略）
 - 存储：智能体对话、上下文、可观测性数据
 
-### ChromaDB（向量存储）
-- 位置：`chroma-data/`（已在 git 中忽略）
-- 存储：文档嵌入向量、元数据
-- 持久化：通过 Docker volume 或本地目录
+### Milvus（向量存储）
+- Docker 容器，持久化卷
+- 存储：文档嵌入向量（员工手册 + 知识库）
+- 集合：`employee_rules`、`knowledge_book`
+- 索引：IVF_FLAT，L2 距离
+
+### Redis（查询缓存）
+- Docker 容器
+- 存储：查询嵌入向量和结果
+- TTL：每个查询 1 小时
 
 ## 🔒 安全最佳实践
 
@@ -335,7 +365,8 @@ agents: {
 
 - **框架**：[Mastra](https://mastra.ai) - AI 智能体框架
 - **AI 模型**：OpenAI GPT-4o-mini
-- **向量数据库**：ChromaDB
+- **向量数据库**：Milvus
+- **缓存**：Redis
 - **嵌入模型**：OpenAI text-embedding-3-small
 - **数据库**：LibSQL（本地）、MySQL（分析）
 - **协议**：MCP（模型上下文协议）
@@ -344,31 +375,52 @@ agents: {
 
 ## 🐛 故障排查
 
-### ChromaDB 连接失败
+### Milvus 连接失败
 ```bash
-# 检查 ChromaDB 是否运行
-curl http://localhost:8000/api/v1/heartbeat
+# 检查 Milvus 是否运行
+docker ps | grep milvus
 
-# 重启 ChromaDB
-docker restart chromadb
+# 重启 Milvus
+docker restart milvus-standalone
+
+# 检查 Milvus 日志
+docker logs milvus-standalone
 ```
 
 ### 索引失败
 ```bash
 # 检查文件是否存在
 ls -la data/employee-rules.txt
+ls -la data/dmbj.txt
 
 # 检查 OpenAI API Key
 echo $OPENAI_API_KEY
+
+# 重新运行索引
+npm run index-pdf      # 员工手册
+npm run index-dmbj     # 知识库
 ```
 
 ### RAG 返回空结果
 ```bash
-# 验证集合是否存在
-curl http://localhost:8000/api/v1/collections
+# 检查集合是否存在（使用 Python）
+from pymilvus import connections, utility
+connections.connect(host='localhost', port='19530')
+print(utility.list_collections())
 
 # 重新索引文档
 npm run index-pdf
+npm run index-dmbj
+```
+
+### Redis 缓存问题
+```bash
+# 检查 Redis 连接
+docker ps | grep redis
+redis-cli -h localhost -p 6379 ping
+
+# 清空缓存
+redis-cli -h localhost -p 6379 FLUSHDB
 ```
 
 ## 📄 许可证
