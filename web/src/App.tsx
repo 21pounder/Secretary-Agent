@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Loader2, AlertCircle, PlusSquare, Menu, X } from 'lucide-react';
+import { Send, Bot, User, Loader2, AlertCircle, Plus, Menu, X, Database, Newspaper, Trophy, Train, BookOpen, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { apiClient } from './api/client';
 import type { Message } from './api/client';
-import { cn } from './lib/utils';
 
 interface ChatSession {
   id: string;
@@ -11,17 +10,26 @@ interface ChatSession {
   messages: Message[];
 }
 
+const FEATURES = [
+  { icon: Database, label: 'Database', desc: 'SQL queries & analysis' },
+  { icon: Newspaper, label: 'News', desc: 'Trending topics' },
+  { icon: Trophy, label: 'Sports', desc: 'NBA, NFL, MLB stats' },
+  { icon: Train, label: 'Travel', desc: 'Train tickets' },
+  { icon: BookOpen, label: 'Policies', desc: 'HR handbook' },
+  { icon: Sparkles, label: 'Fortune', desc: 'I Ching divination' },
+];
+
 const COMMON_EMOJIS = ['😊', '😂', '❤️', '👍', '🔥', '✨', '🎉', '💯', '🚀', '👏', '💪', '🙏', '🤔', '😍', '⭐', '💡', '🎯', '✅', '❌', '⚡'];
 
 function App() {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([
     {
       id: '1',
-      title: 'New Conversation',
+      title: 'New Chat',
       messages: [
         {
           role: 'assistant',
-          content: 'Good day! I\'m your personal secretary. I\'m here to assist you with database inquiries, latest news updates, employee policy guidance, sports information, travel arrangements, and I Ching divination. What can I help you with?',
+          content: "Hey there! I'm your **DataAnalyze Helper** - ready to assist with database queries, trending news, sports stats, travel planning, HR policies, and more. What can I help you with today?",
           timestamp: new Date(),
         },
       ],
@@ -32,15 +40,13 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Get current session
   const currentSession = chatSessions.find(s => s.id === currentSessionId);
   const messages = currentSession?.messages || [];
 
-  // 自动滚动到底部
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -49,16 +55,13 @@ function App() {
     scrollToBottom();
   }, [messages]);
 
-  // 检查后端健康状态
   useEffect(() => {
     const checkHealth = async () => {
       const healthy = await apiClient.healthCheck();
       setIsOnline(healthy);
     };
-
     checkHealth();
     const interval = setInterval(checkHealth, 10000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -73,19 +76,16 @@ function App() {
   };
 
   const updateSessionTitle = (sessionId: string, firstMessage: string) => {
-    const title = firstMessage.slice(0, 30) + (firstMessage.length > 30 ? '...' : '');
+    const title = firstMessage.slice(0, 25) + (firstMessage.length > 25 ? '...' : '');
     setChatSessions(prev =>
       prev.map(session =>
-        session.id === sessionId
-          ? { ...session, title }
-          : session
+        session.id === sessionId ? { ...session, title } : session
       )
     );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
@@ -97,7 +97,6 @@ function App() {
     const newMessages = [...messages, userMessage];
     updateCurrentSessionMessages(newMessages);
 
-    // Update session title if it's the first user message
     if (messages.length === 1 && messages[0].role === 'assistant') {
       updateSessionTitle(currentSessionId, userMessage.content);
     }
@@ -109,50 +108,40 @@ function App() {
 
     try {
       const result = await apiClient.chat(userMessage.content);
-
       const assistantMessage: Message = {
         role: 'assistant',
         content: result.response,
         timestamp: new Date(),
       };
-
       updateCurrentSessionMessages([...newMessages, assistantMessage]);
     } catch (err: any) {
       setError(err.message);
-
       const errorMessage: Message = {
         role: 'assistant',
-        content: `Sorry, I encountered an error: ${err.message}\n\nPlease make sure the backend service is running (\`npm run dev\` in project root).`,
+        content: `**Error:** ${err.message}\n\nMake sure the backend is running (\`npm run dev\`).`,
         timestamp: new Date(),
       };
-
       updateCurrentSessionMessages([...newMessages, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSubmit(e as any);
-    }
-  };
-
   const handleNewChat = () => {
     const newSession: ChatSession = {
       id: Date.now().toString(),
-      title: 'New Conversation',
+      title: 'New Chat',
       messages: [
         {
           role: 'assistant',
-          content: 'Good day! I\'m your personal secretary. I\'m here to assist you with database inquiries, latest news updates, employee policy guidance, sports information, travel arrangements, and I Ching divination. What can I help you with?',
+          content: "Hey there! I'm your **DataAnalyze Helper** - ready to assist with database queries, trending news, sports stats, travel planning, HR policies, and more. What can I help you with today?",
           timestamp: new Date(),
         },
       ],
     };
     setChatSessions([newSession, ...chatSessions]);
     setCurrentSessionId(newSession.id);
+    setSidebarOpen(false);
   };
 
   const handleEmojiClick = (emoji: string) => {
@@ -161,223 +150,169 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen" style={{ backgroundColor: '#FAFAFA', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      {/* Mobile Sidebar Overlay */}
+    <div className="flex h-screen" style={{ backgroundColor: '#F8FAFA' }}>
+      {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+        <div
+          className="fixed inset-0 bg-black/30 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside 
-        className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-[280px] flex-shrink-0 border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-        style={{ backgroundColor: '#1A1A1A', borderColor: '#333333' }}
+      <aside
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-72 flex-shrink-0 transform transition-transform duration-200 lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        style={{ backgroundColor: '#FFFFFF', borderRight: '1px solid #E0E0E0' }}
       >
-        <div className="h-full flex flex-col">
-          {/* Mobile Close Button */}
-          <div className="lg:hidden flex justify-end p-4">
+        <div className="h-full flex flex-col p-4">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-[#333333] tracking-tight">MENU</h2>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-2 rounded-lg hover:bg-gray-800 transition-colors"
+              className="lg:hidden p-2 text-[#333333] hover:bg-gray-100 rounded-lg"
             >
-              <X className="w-6 h-6 text-white" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="flex flex-col h-full p-5 space-y-3">
-            {/* New Chat Button */}
-            <button
-              onClick={() => {
-                handleNewChat();
-                setSidebarOpen(false);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-lg"
-              style={{ backgroundColor: '#2A2A2A', color: 'white', border: '1px solid #404040' }}
-            >
-              <PlusSquare className="w-5 h-5" />
-              <span className="font-semibold text-base">New Chat</span>
-            </button>
+          {/* New Chat Button */}
+          <button
+            onClick={handleNewChat}
+            className="btn-tiffany flex items-center justify-center gap-2 px-4 py-3 mb-6"
+          >
+            <Plus className="w-5 h-5" />
+            <span>New Chat</span>
+          </button>
 
-            {/* Features Section */}
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  What I Can Do
-                </h3>
-
-                {/* Feature Cards */}
-                <div className="space-y-2">
-                  {/* Database Analysis */}
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: '#2A2A2A', border: '1px solid #404040' }}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-lg">📊</span>
-                      <h4 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.95)' }}>Database Analysis</h4>
-                    </div>
-                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      Query MySQL databases and generate insights
-                    </p>
-                  </div>
-
-                  {/* Trending News */}
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: '#2A2A2A', border: '1px solid #404040' }}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-lg">📰</span>
-                      <h4 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.95)' }}>Trending News</h4>
-                    </div>
-                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      Real-time updates from Weibo, Zhihu, Bilibili
-                    </p>
-                  </div>
-
-                  {/* Sports Info */}
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: '#2A2A2A', border: '1px solid #404040' }}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-lg">⚽</span>
-                      <h4 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.95)' }}>Sports Data</h4>
-                    </div>
-                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      NBA, NFL, MLB, NHL, CBA statistics
-                    </p>
-                  </div>
-
-                  {/* Travel Arrangements */}
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: '#2A2A2A', border: '1px solid #404040' }}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-lg">🚄</span>
-                      <h4 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.95)' }}>Train Tickets</h4>
-                    </div>
-                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      China Railway ticket search and planning
-                    </p>
-                  </div>
-
-                  {/* Employee Policies */}
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: '#2A2A2A', border: '1px solid #404040' }}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-lg">📖</span>
-                      <h4 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.95)' }}>Policy Guidance</h4>
-                    </div>
-                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      RAG-powered employee handbook assistant
-                    </p>
-                  </div>
-
-                  {/* I Ching Divination */}
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: '#2A2A2A', border: '1px solid #404040' }}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-lg">🔮</span>
-                      <h4 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.95)' }}>Fortune Telling</h4>
-                    </div>
-                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                      I Ching divination and hexagram interpretation
-                    </p>
+          {/* Features */}
+          <div className="mb-6">
+            <h3 className="text-xs font-bold text-[#666666] uppercase tracking-widest mb-3">
+              CAPABILITIES
+            </h3>
+            <div className="space-y-2">
+              {FEATURES.map(({ icon: Icon, label, desc }) => (
+                <div
+                  key={label}
+                  className="flex items-center gap-3 p-3 bg-[#F8FAFA] rounded-lg border border-[#E0E0E0]"
+                >
+                  <Icon className="w-4 h-4 text-[#0ABAB5]" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#333333]">{label}</p>
+                    <p className="text-xs text-[#666666]">{desc}</p>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
+          </div>
 
-            {/* User Profile */}
-            <div className="mt-auto pt-4 border-t" style={{ borderColor: '#333333' }}>
-              <div className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: '#2A2A2A', border: '1px solid #404040' }}>
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#4A4A4A' }}>
-                  <User className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>Welcome back,</p>
-                  <p className="text-base font-semibold truncate" style={{ color: 'rgba(255,255,255,0.95)' }}>User</p>
-                </div>
-              </div>
+          {/* Chat History */}
+          <div className="flex-1 overflow-y-auto">
+            <h3 className="text-xs font-bold text-[#666666] uppercase tracking-widest mb-3">
+              HISTORY
+            </h3>
+            <div className="space-y-1">
+              {chatSessions.map(session => (
+                <button
+                  key={session.id}
+                  onClick={() => {
+                    setCurrentSessionId(session.id);
+                    setSidebarOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm truncate transition-colors rounded-lg ${
+                    session.id === currentSessionId
+                      ? 'bg-[#0ABAB5] text-white font-semibold'
+                      : 'text-[#333333] hover:bg-[#F8FAFA]'
+                  }`}
+                >
+                  {session.title}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="mt-4 pt-4 border-t border-[#E0E0E0]">
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-3 h-3 rounded-full ${isOnline ? 'bg-[#0ABAB5]' : 'bg-[#FF6B6B]'} ${
+                  isOnline ? 'animate-pulse-dot' : ''
+                }`}
+              />
+              <span className="text-sm text-[#666666]">
+                {isOnline ? 'Connected' : 'Offline'}
+              </span>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col" style={{ backgroundColor: '#FFFFFF' }}>
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b shadow-sm" style={{ borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}>
-          <div className="flex items-center space-x-3">
-            {/* Mobile Menu Button */}
+        <header
+          className="flex items-center justify-between px-4 py-4"
+          style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E0E0E0' }}
+        >
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
             >
-              <Menu className="w-6 h-6" style={{ color: '#1A1A1A' }} />
+              <Menu className="w-6 h-6 text-[#333333]" />
             </button>
-
-            <div className="rounded-xl p-2 sm:p-3" style={{ backgroundColor: '#1A1A1A' }}>
-              <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: '#0ABAB5' }}
+            >
+              <Bot className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-base sm:text-xl font-bold" style={{ color: '#1A1A1A' }}>
+              <h1 className="text-xl font-bold tracking-tight text-[#333333]">
                 DataAnalyze Helper
               </h1>
-              <div className="flex items-center space-x-2">
-                <div
-                  className={cn("w-2 h-2 rounded-full", isOnline ? "bg-green-500 animate-pulse" : "bg-red-500")}
-                />
-                <span className="text-xs sm:text-sm font-medium" style={{ color: '#6B7280' }}>
-                  {isOnline ? 'Online' : 'Offline'}
-                </span>
-              </div>
+              <p className="text-xs font-medium text-[#666666]">
+                Multi-Agent AI Assistant
+              </p>
             </div>
           </div>
-
-          <div className="hidden md:block text-base font-semibold" style={{ color: '#4B5563' }}>
-            {currentSession?.title || 'New Conversation'}
+          <div className="hidden sm:block text-sm font-semibold text-[#666666] truncate max-w-[200px]">
+            {currentSession?.title}
           </div>
         </header>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6" style={{ backgroundColor: '#F9FAFB' }}>
-          <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6" style={{ backgroundColor: '#F8FAFA' }}>
+          <div className="max-w-3xl mx-auto space-y-4">
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={cn(
-                  "flex gap-2 sm:gap-4 items-start",
-                  message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                )}
+                className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
               >
                 {/* Avatar */}
                 <div
-                  className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shadow-sm"
+                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full"
                   style={{
-                    backgroundColor: message.role === 'assistant' ? '#1A1A1A' : '#4A4A4A',
+                    backgroundColor: message.role === 'assistant' ? '#0ABAB5' : '#81D8D0',
                   }}
                 >
                   {message.role === 'assistant' ? (
-                    <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    <Bot className="w-5 h-5 text-white" />
                   ) : (
-                    <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    <User className="w-5 h-5 text-white" />
                   )}
                 </div>
 
-                {/* Message Content */}
-                <div className={cn("flex-1 max-w-2xl", message.role === 'user' && 'flex justify-end')}>
+                {/* Message */}
+                <div className={`flex-1 max-w-xl ${message.role === 'user' ? 'flex justify-end' : ''}`}>
                   <div
-                    className={cn(
-                      "rounded-2xl px-3 py-3 sm:px-5 sm:py-4 shadow-sm",
-                      message.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'
-                    )}
-                    style={{
-                      backgroundColor: message.role === 'user' ? '#1A1A1A' : '#FFFFFF',
-                      border: message.role === 'user' ? 'none' : '1px solid #E5E7EB',
-                    }}
+                    className={`px-4 py-3 ${
+                      message.role === 'user' ? 'message-user' : 'message-assistant'
+                    }`}
                   >
-                    <div
-                      className={cn("prose prose-sm sm:prose-base max-w-none", message.role === 'user' && 'prose-invert')}
-                      style={{ 
-                        color: message.role === 'user' ? '#FFFFFF' : '#1F2937',
-                        fontSize: '14px',
-                        lineHeight: '1.6'
-                      }}
-                    >
+                    <div className="prose-brutal text-sm">
                       <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                   </div>
@@ -385,35 +320,39 @@ function App() {
               </div>
             ))}
 
-            {/* Loading Indicator */}
+            {/* Loading */}
             {isLoading && (
-              <div className="flex gap-2 sm:gap-4 items-start">
+              <div className="flex gap-3">
                 <div
-                  className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shadow-sm"
-                  style={{ backgroundColor: '#1A1A1A' }}
+                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full"
+                  style={{ backgroundColor: '#0ABAB5' }}
                 >
-                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  <Bot className="w-5 h-5 text-white" />
                 </div>
-                <div className="rounded-2xl rounded-tl-sm px-3 py-3 sm:px-5 sm:py-4 shadow-sm" style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB' }}>
-                  <div className="flex items-center space-x-2 sm:space-x-3">
-                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" style={{ color: '#4A4A4A' }} />
-                    <span className="text-sm sm:text-base font-medium" style={{ color: '#6B7280' }}>
-                      Thinking...
-                    </span>
+                <div className="message-assistant px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#0ABAB5]" />
+                    <span className="text-sm font-medium text-[#666666]">Thinking...</span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Error Display */}
+            {/* Error */}
             {error && (
-              <div className="flex gap-2 sm:gap-4 items-start">
-                <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: '#EF4444' }}>
-                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <div className="flex gap-3">
+                <div
+                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full"
+                  style={{ backgroundColor: '#FF6B6B' }}
+                >
+                  <AlertCircle className="w-5 h-5 text-white" />
                 </div>
-                <div className="rounded-2xl rounded-tl-sm px-3 py-3 sm:px-5 sm:py-4 shadow-sm" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5' }}>
-                  <p className="text-sm sm:text-base font-semibold" style={{ color: '#DC2626' }}>Connection Error</p>
-                  <p className="text-xs sm:text-[15px] mt-1" style={{ color: '#B91C1C' }}>{error}</p>
+                <div
+                  className="px-4 py-3 rounded-2xl"
+                  style={{ backgroundColor: '#FFF0F0', border: '1px solid #FFD0D0' }}
+                >
+                  <p className="text-sm font-bold text-[#FF6B6B]">Connection Error</p>
+                  <p className="text-xs text-[#666666] mt-1">{error}</p>
                 </div>
               </div>
             )}
@@ -422,55 +361,36 @@ function App() {
           </div>
         </div>
 
-        {/* Input Area */}
-        <div className="border-t px-3 sm:px-6 py-3 sm:py-6" style={{ borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' }}>
-          <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative">
+        {/* Input */}
+        <div className="p-4" style={{ backgroundColor: '#FFFFFF', borderTop: '1px solid #E0E0E0' }}>
+          <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
             <div
-              className="flex items-center gap-2 sm:gap-3 px-3 py-2 sm:px-5 sm:py-4 rounded-xl shadow-lg border-2 transition-all focus-within:border-gray-400"
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderColor: '#E5E7EB',
-              }}
+              className="flex items-center gap-3 p-2 rounded-2xl"
+              style={{ backgroundColor: '#F8FAFA', border: '1px solid #E0E0E0' }}
             >
               {/* Emoji Picker */}
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                  aria-label="Open emoji picker"
+                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                 >
-                  <span className="text-xl sm:text-2xl leading-none" role="img" aria-label="emoji">😊</span>
+                  <span className="text-xl">😊</span>
                 </button>
-
                 {showEmojiPicker && (
                   <>
-                    {/* Backdrop to close picker */}
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowEmojiPicker(false)}
-                    />
-                    
-                    {/* Emoji Picker Popup */}
+                    <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)} />
                     <div
-                      className="absolute bottom-full left-0 mb-2 sm:mb-3 rounded-2xl shadow-2xl border z-50 animate-slide-up overflow-hidden"
-                      style={{ 
-                        backgroundColor: '#FFFFFF', 
-                        borderColor: '#E5E7EB',
-                        width: 'min(320px, calc(100vw - 2rem))'
-                      }}
+                      className="absolute bottom-full left-0 mb-2 rounded-2xl shadow-xl border z-50 overflow-hidden animate-slide-up"
+                      style={{ backgroundColor: '#FFFFFF', borderColor: '#E0E0E0', width: '320px' }}
                     >
-                      <div className="grid grid-cols-8 gap-0">
+                      <div className="grid grid-cols-10 gap-0">
                         {COMMON_EMOJIS.map((emoji, index) => (
                           <button
                             key={emoji}
                             type="button"
                             onClick={() => handleEmojiClick(emoji)}
-                            className="w-10 h-10 flex items-center justify-center text-xl sm:text-2xl hover:bg-blue-500 hover:scale-110 active:scale-95 transition-all border border-gray-100"
-                            style={{ 
-                              fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
-                              backgroundColor: index === 5 ? '#E3F2FD' : '#FFFFFF'
-                            }}
+                            className="w-8 h-8 flex items-center justify-center text-lg hover:bg-[#E8F8F8] hover:scale-110 active:scale-95 transition-all"
                           >
                             {emoji}
                           </button>
@@ -481,35 +401,25 @@ function App() {
                 )}
               </div>
 
-              {/* Input Field */}
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a new message here..."
-                className="flex-1 bg-transparent border-none outline-none text-sm sm:text-base font-medium placeholder:font-normal"
-                style={{ color: '#1F2937' }}
+                placeholder="Type your message..."
+                className="flex-1 px-3 py-2 bg-transparent border-none outline-none text-[#333333] placeholder:text-[#999999]"
+                style={{ fontSize: '16px' }}
               />
-
-              {/* Send Button */}
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className={cn(
-                  "flex-shrink-0 p-2 sm:p-3 rounded-lg transition-all",
-                  !input.trim() || isLoading
-                    ? "opacity-40 cursor-not-allowed bg-gray-200"
-                    : "hover:scale-110 shadow-md active:scale-95"
-                )}
-                style={{
-                  backgroundColor: input.trim() && !isLoading ? '#1A1A1A' : undefined,
-                }}
+                className={`btn-tiffany p-3 rounded-xl ${
+                  !input.trim() || isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" style={{ color: '#4A4A4A' }} />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  <Send className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  <Send className="w-5 h-5" />
                 )}
               </button>
             </div>

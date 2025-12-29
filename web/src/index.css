@@ -1,46 +1,102 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
-  }
+:root {
+  /* Clean Light Palette */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8FAFA;
+  --white: #FFFFFF;
+
+  /* Tiffany Green */
+  --tiffany: #0ABAB5;
+  --tiffany-light: #81D8D0;
+  --tiffany-dark: #088F8C;
+
+  /* Accent Colors */
+  --yellow: #FFD500;
+  --coral: #FF6B6B;
+
+  /* Borders & Text */
+  --border: #E0E0E0;
+  --border-dark: #CCCCCC;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-light: #999999;
 }
 
 @layer base {
   * {
-    @apply border-border;
+    box-sizing: border-box;
   }
-  
+
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', 'Montserrat', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Custom scrollbar styling */
+/* Button Styles - Tiffany Theme */
+.btn-tiffany {
+  background-color: var(--tiffany);
+  color: white;
+  border: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.btn-tiffany:hover {
+  background-color: var(--tiffany-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(10, 186, 181, 0.3);
+}
+
+.btn-white {
+  background-color: white;
+  color: var(--tiffany);
+  border: 2px solid var(--tiffany);
+  border-radius: 8px;
+}
+
+.btn-white:hover {
+  background-color: var(--tiffany-light);
+  color: white;
+}
+
+/* Card Styles */
+.card-clean {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.card-clean:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Message Bubbles */
+.message-user {
+  background: var(--tiffany);
+  color: white;
+  border-radius: 16px 16px 4px 16px;
+}
+
+.message-assistant {
+  background: white;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 16px 16px 16px 4px;
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -51,15 +107,15 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--tiffany-light);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--tiffany);
 }
 
-/* Smooth animations */
+/* Animations */
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -71,111 +127,54 @@
   }
 }
 
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .animate-slide-up {
   animation: slideUp 0.3s ease-out;
 }
 
-/* Prose styling for markdown */
-.prose {
-  max-width: none;
+.animate-pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
-.prose p {
-  margin: 0.5em 0;
+/* Prose/Markdown Styles */
+.prose-brutal {
   line-height: 1.6;
 }
 
-.prose p:first-child {
-  margin-top: 0;
+.prose-brutal p {
+  margin: 0.5em 0;
 }
 
-.prose p:last-child {
-  margin-bottom: 0;
-}
-
-.prose code {
-  background-color: rgba(175, 184, 193, 0.2);
+.prose-brutal code {
+  background: rgba(10, 186, 181, 0.1);
   padding: 0.2em 0.4em;
-  border-radius: 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Courier New', monospace;
   font-size: 0.9em;
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
 }
 
-.prose pre {
-  background-color: #161B22;
+.prose-brutal pre {
+  background: #2D2D2D;
   padding: 1em;
   border-radius: 8px;
   overflow-x: auto;
   margin: 1em 0;
 }
 
-.prose pre code {
-  background-color: transparent;
+.prose-brutal pre code {
+  background: transparent;
+  color: #E0E0E0;
   padding: 0;
-  color: #C9D1D9;
 }
 
-.prose-invert code {
-  background-color: rgba(240, 246, 252, 0.15);
-}
-
-.prose-invert pre {
-  background-color: rgba(240, 246, 252, 0.1);
-}
-
-/* Input focus effects */
-input:focus,
-button:focus {
-  outline: none;
-}
-
-/* Smooth transitions for buttons */
-button {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-button:active {
-  transform: scale(0.98);
-}
-
-/* Mobile optimizations */
+/* Mobile */
 @media (max-width: 640px) {
-  /* Better touch targets */
-  button {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
-  /* Prevent zoom on input focus in iOS */
-  input,
-  textarea,
-  select {
-    font-size: 16px !important;
-  }
-  
-  /* Smooth scrolling */
-  * {
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  /* Hide scrollbar on mobile for cleaner look */
-  ::-webkit-scrollbar {
-    display: none;
-  }
-}
-
-/* Tablet optimizations */
-@media (min-width: 641px) and (max-width: 1023px) {
-  /* Tablet-specific styles if needed */
-}
-
-/* Reduce motion for users who prefer it */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  .btn-tiffany:hover {
+    transform: none;
+    box-shadow: none;
   }
 }

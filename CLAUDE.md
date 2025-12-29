@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DataAnalyzeHelper is a multi-agent AI assistant built on the Mastra framework. It coordinates specialized agents for database analysis, trending news, sports data, HR policy queries, and travel planning through a central Secretary Agent.
+DataAnalyzeHelper is a multi-agent AI assistant built on the Mastra framework. It coordinates specialized agents for database analysis, trending news, sports data, HR policy queries, and knowledge queries through a central Secretary Agent.
 
 **Tech Stack:**
 - Mastra AI Framework (multi-agent orchestration)
 - TypeScript + Node.js >= 20.9.0
-- ChromaDB (vector database for RAG)
+- Milvus (vector database for RAG - both Employee Rules and Knowledge Book)
 - MySQL (data analysis)
 - Redis (query caching)
 - Mem0 (long-term user memory)
@@ -19,32 +19,40 @@ DataAnalyzeHelper is a multi-agent AI assistant built on the Mastra framework. I
 
 ### Development
 ```bash
-npm run dev           # Start development server (http://localhost:4111)
+npm run dev           # Start Mastra dev server (http://localhost:4111)
 npm run build         # Build for production
 npm start             # Run production build
+```
+
+### Web Frontend
+```bash
+cd web && npm install  # First time only
+cd web && npm run dev  # Start frontend (http://localhost:3000)
 ```
 
 ### Testing & Utilities
 ```bash
 npm run test:mem0              # Test Mem0 integration
 npm run test:knowledge-book    # Test Knowledge Book Agent queries
-npm run index-pdf              # Index employee handbook into ChromaDB
+npm run index-pdf              # Index employee handbook into Milvus
 npm run index-dmbj             # Index novel content into Milvus
 ```
 
 ### First-Time Setup
 ```bash
-# 1. Start ChromaDB
-docker run -d -p 8000:8000 -v ./chroma-data:/chroma/chroma --name chromadb chromadb/chroma:latest
+# 1. Start Milvus (required for both RAG agents)
+docker run -d \
+  --name milvus-standalone \
+  -p 19530:19530 -p 9091:9091 -p 2379:2379 \
+  -e ETCD_USE_EMBED=true -e COMMON_STORAGETYPE=local \
+  milvusdb/milvus:v2.4.4 milvus run standalone
 
-# 2. Start Milvus (for Knowledge Book Agent)
-# See: https://milvus.io/docs/install_standalone-docker.md
-wget https://github.com/milvus-io/milvus/releases/download/v2.3.0/milvus-standalone-docker-compose.yml -O docker-compose.yml
-docker-compose up -d
+# 2. Start Redis (for query caching)
+docker run -d --name redis -p 6379:6379 redis:latest
 
 # 3. Index documents
-npm run index-pdf    # Employee handbook → ChromaDB
-npm run index-dmbj   # Novel content → Milvus
+npm run index-pdf    # Employee handbook → Milvus (employee_rules collection)
+npm run index-dmbj   # Novel content → Milvus (knowledge_book collection)
 ```
 
 ## Architecture
@@ -52,11 +60,13 @@ npm run index-dmbj   # Novel content → Milvus
 ### Agent Hierarchy & Routing
 
 **Secretary Agent** (coordinator) routes requests to specialist agents:
-- **Direct handling:** Train tickets (12306 MCP), sports data (BallDontLie MCP), weather queries (Open-Meteo API), Mem0 memory operations
+- **Direct handling:** Sports data (BallDontLie/RapidAPI), weather queries (Open-Meteo API), Mem0 memory operations
 - **Delegates to Data Analyze Agent:** SQL queries, database schema, data analysis
 - **Delegates to Hot News Agent:** Chinese trending topics (Weibo, Zhihu, Bilibili, etc.)
-- **Delegates to Employee Rules Agent:** HR policy, employee handbook queries (ChromaDB RAG)
+- **Delegates to Employee Rules Agent:** HR policy, employee handbook queries (Milvus RAG)
 - **Delegates to Knowledge Book Agent:** Novel content queries (Milvus RAG with advanced optimizations)
+
+**Note:** 12306-mcp (train tickets) is currently disabled due to server connection timeout issues.
 
 ### Critical Agent Delegation Rules
 
@@ -72,185 +82,51 @@ The Secretary Agent uses **keyword matching** to route queries. Check `src/mastr
 
 All MCP servers are configured in `src/mastra/config/config.ts`:
 - `mcp-server-hotnews` - Exa API for news (uses EXA_API_KEY)
-- `12306-mcp` - China Railway tickets
-- `dbhub` - MySQL connection (uses MYSQL_DSN or MYSQL_DSN_READONLY)
-- `balldontlie` - Sports data (uses BALLDONTLIE_API_KEY)
+- `dbhub` - MySQL connection (uses MYSQL_DSN)
+- `balldontlie` - Sports data (uses BALLDONTLIE_API_KEY or RAPIDAPI_KEY)
+- `12306-mcp` - China Railway tickets (currently disabled)
 
 **Custom Tools** (not MCP-based):
 - `weather-tool` - Weather queries via Open-Meteo API (free, no API key required)
   - Location: `src/mastra/tools/weather-tool.ts`
   - Supports both Chinese and English city names
-  - Returns bilingual weather conditions (中文 / English)
-  - Data: temperature, humidity, wind speed, weather conditions
+  - Returns bilingual weather conditions
 
 **Important:** MCP clients are initialized in `src/mastra/mcp/` and must be awaited: `await mysqlClient.getTools()`.
 
-### RAG System (Employee Rules Agent)
+### RAG System (Both Agents Use Milvus)
 
-**Vector Database:** ChromaDB (port 8000)
+**Vector Database:** Milvus (port 19530)
 **Embedding Model:** OpenAI text-embedding-3-small (1536 dimensions)
-**Retrieval Strategy:** Hybrid search with RRF fusion
+**Collections:** `employee_rules` (Employee Rules Agent), `knowledge_book` (Knowledge Book Agent)
 
 Key components:
-- `src/mastra/agents/employee-ruler-agent.ts` - Main RAG agent
+- `src/mastra/agents/employee-ruler-agent.ts` - Employee Rules RAG agent
+- `src/mastra/agents/knowledge-book-agent.ts` - Knowledge Book RAG agent (with query rewriting + reranker)
+- `src/mastra/cache/query-cache.ts` - Redis-backed semantic cache
 - `multiSourceRetrieval()` - Combines vector + keyword search
 - `reciprocalRankFusion()` - Merges multiple retrieval sources
 - Document chunking: 512 chars, 50 char overlap
 
-**Caching:** Redis-backed semantic cache (see `src/mastra/cache/query-cache.ts`):
-- Similarity threshold: configurable (default 0.95)
-- TTL: configurable (default 3600s)
+**Caching:** Redis-backed semantic cache:
+- Similarity threshold: 0.95 (Employee Rules), 0.50 (Knowledge Book)
+- TTL: 3600s (configurable)
 - Stores query embeddings + results
 
-**Important:** Always search memory BEFORE retrieval to check cache. Update cache AFTER successful retrieval.
+**Important:** Always search cache BEFORE retrieval. Update cache AFTER successful retrieval.
 
-### RAG System (Knowledge Book Agent)
+### Knowledge Book Agent Advanced Features
 
-**Vector Database:** Milvus (port 19530)
-**Embedding Model:** OpenAI text-embedding-3-small (1536 dimensions)
-**Retrieval Strategy:** Advanced hybrid search with Query Rewriting + RRF Fusion + LLM Reranker
+The Knowledge Book Agent has additional RAG optimizations:
 
-**Purpose:** RAG-powered agent for querying novel content (《盗墓笔记》) with production-grade optimizations.
+1. **Query Rewriting**: LLM generates 2-3 semantic variations to improve recall
+2. **Intelligent Reranker** (auto/embedding/llm modes):
+   - `embedding`: Fast cosine similarity (for simple queries)
+   - `llm`: GPT-4o-mini scoring (for complex queries)
+   - `auto`: Switches based on query complexity (default)
+3. **Reciprocal Rank Fusion (RRF)**: Merges results from multiple query variants
 
-**Key Components:**
-- `src/mastra/agents/knowledge-book-agent.ts` - Main RAG agent with optimizations
-- `multiSourceRetrieval()` - Advanced retrieval pipeline with multi-step optimization
-- `rewriteQuery()` - LLM-based query expansion (generates semantic variations)
-- `rerankResults()` - LLM-based result reranking (relevance scoring)
-- `reciprocalRankFusion()` - Merges results from multiple query variants
-- Document chunking: 512 chars, 50 char overlap
-
-**Advanced RAG Features:**
-
-1. **Query Rewriting** (NEW):
-   - Uses GPT-4o-mini to generate 2-3 semantic query variations
-   - Improves recall by capturing different ways to phrase the same question
-   - Example: "吴邪第一次进古墓" → ["吴邪初次探索古墓", "吴邪首次下墓"]
-   - **Performance Impact:** +10-20% recall improvement
-
-2. **Intelligent Reranker with Dual Strategies** (NEW):
-   - **Embedding Reranker** (fast, for simple queries):
-     - Uses cosine similarity between query and document embeddings
-     - Faster and more cost-effective
-     - Best for factual lookups and simple questions
-   - **LLM Reranker** (accurate, for complex queries):
-     - Scores each retrieved document for relevance (0-100)
-     - Reranks results based on semantic matching and reasoning
-     - Uses GPT-4o-mini with low temperature (0.3) for consistency
-   - **Auto Mode** (default):
-     - Intelligently switches between strategies based on query complexity
-     - Complex query detection: length >100, contains "为什么/why/怎么/how", multiple questions
-     - Optimizes for both speed and accuracy
-   - **Performance Impact:** +15-30% precision improvement
-
-3. **Reciprocal Rank Fusion (RRF)**:
-   - Combines results from multiple query variants
-   - Balances diversity and relevance
-   - Formula: score = Σ(1 / (k + rank)) where k=60
-
-4. **Redis Query Cache** (see `src/mastra/cache/query-cache.ts`):
-   - Semantic similarity-based caching
-   - Stores query embeddings + results
-   - Configurable similarity threshold and TTL
-
-**Retrieval Pipeline Flow:**
-```
-User Query
-    ↓
-[Check Cache] ───→ Cache Hit → Return Cached Results
-    ↓ Cache Miss
-[Query Rewriting] → Generate 2-3 semantic variations
-    ↓
-[Embed All Queries] → OpenAI text-embedding-3-small
-    ↓
-[Parallel Vector Search] → Search Milvus with all query variants
-    ↓
-[RRF Fusion] → Merge results from all searches
-    ↓
-[LLM Reranking] → Score and reorder by relevance
-    ↓
-[Update Cache] → Store results for future queries
-    ↓
-Return Top-K Results
-```
-
-**Milvus Configuration:**
-- **Index Type:** IVF_FLAT (balance of speed/accuracy)
-- **Metric:** L2 distance
-- **Index Params:** nlist=256 (cluster centers)
-- **Search Params:** nprobe=16 (clusters to search)
-- All configurable via environment variables
-
-**RAG Optimization Switches** (`RAG_CONFIG`):
-```typescript
-// Enable/disable features via environment variables
-ENABLE_QUERY_REWRITE=true      # Toggle query rewriting (default: true)
-ENABLE_RERANKER=true            # Toggle reranker (default: true)
-QUERY_REWRITE_COUNT=2           # Number of query variations (default: 2)
-RERANKER_TOPK=5                 # Top results to return after reranking (default: 5)
-RERANKER_TYPE=auto              # Reranker strategy: 'embedding', 'llm', 'auto' (default: auto)
-```
-
-**Environment Variables:**
-```env
-# Milvus Configuration
-MILVUS_HOST=localhost           # Milvus server host
-MILVUS_PORT=19530               # Milvus server port
-MILVUS_COLLECTION=knowledge_book  # Collection name
-
-# RAG Optimization Controls
-ENABLE_QUERY_REWRITE=true       # Enable query rewriting
-ENABLE_RERANKER=true            # Enable reranker
-QUERY_REWRITE_COUNT=2           # Query variations to generate
-RERANKER_TOPK=5                 # Results after reranking
-RERANKER_TYPE=auto              # Reranker strategy: 'embedding', 'llm', 'auto'
-
-# Redis Cache (shared with Employee Rules Agent)
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=                 # Optional
-CACHE_SIMILARITY_THRESHOLD=0.50 # Lower than Employee Rules (0.95)
-CACHE_TTL=3600                  # Cache expiry (seconds)
-```
-
-**Performance Tuning:**
-
-- **High Precision Queries** (exact answers):
-  - Enable both Query Rewrite + Reranker
-  - Use LLM reranker: `RERANKER_TYPE=llm`
-  - Set `RERANKER_TOPK=3` (fewer results, higher quality)
-  - Best for: Complex reasoning, "why/how" questions, multi-step analysis
-
-- **High Recall Queries** (broad search):
-  - Enable Query Rewrite only
-  - Set `QUERY_REWRITE_COUNT=3` (more variations)
-  - Use embedding reranker: `RERANKER_TYPE=embedding`
-  - Best for: Factual lookups, entity searches, simple questions
-
-- **Balanced Mode** (recommended):
-  - Use auto mode: `RERANKER_TYPE=auto` (default)
-  - System automatically chooses best strategy based on query complexity
-  - Optimizes for both speed and accuracy
-
-- **Fast/Budget Mode**:
-  - Disable both features: `ENABLE_QUERY_REWRITE=false ENABLE_RERANKER=false`
-  - Uses basic vector search only
-  - Still benefits from RRF fusion and caching
-  - Best for: High-volume, simple queries
-
-**Cost Considerations:**
-- Query Rewriting: ~200 tokens per query (GPT-4o-mini)
-- LLM Reranker: ~500 tokens per query (GPT-4o-mini)
-- Embedding Reranker: ~0.0001$ per query (OpenAI embeddings)
-- Auto Mode overhead: ~$0.0001-0.0002 per query (varies by query complexity)
-- Caching significantly reduces repeated query costs
-
-**Testing:**
-```bash
-npm run test:knowledge-book  # Test queries with logging
-```
-
-**Important:** Always use `search_knowledge_book` tool before answering. Never rely on agent's training data for novel content.
+**Pipeline:** Cache Check → Query Rewriting → Parallel Vector Search → RRF Fusion → Reranking → Cache Update.
 
 ### Mem0 Integration (Long-Term Memory)
 
@@ -327,25 +203,23 @@ export const mastra = new Mastra({
 - `OPENAI_API_KEY` - OpenAI API key
 - `OPENAI_BASE_URL` - OpenAI API base URL (can use proxies)
 
+**Vector Database (Milvus):**
+- `MILVUS_HOST`, `MILVUS_PORT` - Milvus connection
+- `EMPLOYEE_RULES_COLLECTION` - Collection for Employee Rules (default: employee_rules)
+- `MILVUS_COLLECTION` - Collection for Knowledge Book (default: knowledge_book)
+
 **Optional Services:**
 - `EXA_API_KEY` - For hot news trending topics
-- `BALLDONTLIE_API_KEY` - For sports data
+- `BALLDONTLIE_API_KEY` or `RAPIDAPI_KEY` + `RAPIDAPI_HOST` - For sports data
 - `MEM0_API_KEY` - For long-term memory
+- `MYSQL_DSN` - MySQL connection for data analysis
 
-**Databases:**
-- `CHROMA_HOST`, `CHROMA_PORT`, `CHROMA_COLLECTION` - ChromaDB for Employee Rules RAG
-- `MILVUS_HOST`, `MILVUS_PORT`, `MILVUS_COLLECTION` - Milvus for Knowledge Book RAG
-- `MYSQL_DSN` - MySQL connection for data analysis with full CRUD operations
-- `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` - Redis for RAG query caching
-
-**RAG Optimization (Knowledge Book Agent):**
-- `ENABLE_QUERY_REWRITE` - Enable query rewriting (default: true)
-- `ENABLE_RERANKER` - Enable reranker (default: true)
-- `QUERY_REWRITE_COUNT` - Query variations to generate (default: 2)
-- `RERANKER_TOPK` - Results after reranking (default: 5)
-- `RERANKER_TYPE` - Reranker strategy: 'embedding', 'llm', 'auto' (default: auto)
-- `CACHE_SIMILARITY_THRESHOLD` - Cache similarity threshold (default: 0.50 for Knowledge Book, 0.95 for Employee Rules)
+**Cache & RAG Optimization:**
+- `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` - Redis for query caching
+- `CACHE_SIMILARITY_THRESHOLD` - Cache similarity threshold (0.95 for Employee Rules, 0.50 for Knowledge Book)
 - `CACHE_TTL` - Cache expiry in seconds (default: 3600)
+- `ENABLE_QUERY_REWRITE`, `QUERY_REWRITE_COUNT` - Query rewriting settings
+- `ENABLE_RERANKER`, `RERANKER_TYPE`, `RERANKER_TOPK` - Reranker settings
 
 ## Common Development Workflows
 
@@ -359,23 +233,19 @@ export const mastra = new Mastra({
 
 ### Modifying RAG Document Index
 
-**For Employee Rules Agent (ChromaDB):**
+**For Employee Rules Agent:**
 1. Update/add document in `data/` directory (.txt or .pdf)
 2. Modify file path in `employee-ruler-agent.ts` → `indexEmployeeRules()` if needed
 3. Run `npm run index-pdf`
 4. Restart server: `npm run dev`
 
-**For Knowledge Book Agent (Milvus):**
+**For Knowledge Book Agent:**
 1. Update/add document in `data/` directory (.txt files)
 2. Modify file path in `knowledge-book-agent.ts` → `indexKnowledgeBook()` if needed
 3. Ensure Milvus is running: `docker ps | grep milvus`
 4. Run `npm run index-dmbj`
-   - This will drop the old collection and recreate it
-   - Chunking: 512 chars, 50 char overlap
-   - Index: IVF_FLAT with nlist=256
-5. Verify indexing: Check console output for "✅ 索引完成"
-6. Test queries: `npm run test:knowledge-book`
-7. Restart server: `npm run dev`
+5. Test queries: `npm run test:knowledge-book`
+6. Restart server: `npm run dev`
 
 ### Adding MCP Service
 
@@ -412,25 +282,30 @@ Example: User asks "NBA today" → Query dates ["2025-10-30", "2025-10-31", "202
 
 ### Git Ignored Paths
 - `.env` - Contains secrets
-- `chroma-data/` - ChromaDB vector storage
+- `milvus-data/` - Milvus vector storage (if local)
 - `mastra.db` - Conversation history
 - `node_modules/`
 
 ## Troubleshooting
 
-### ChromaDB Connection Issues
+### Milvus Connection Issues
 ```bash
 # Check if running
-curl http://localhost:8000/api/v1/heartbeat
+docker ps | grep milvus
+
+# Check health
+curl http://localhost:9091/healthz
 
 # Restart
-docker restart chromadb
+docker restart milvus-standalone
 ```
 
 ### RAG Returns No Results
-- Verify collection exists: `curl http://localhost:8000/api/v1/collections`
-- Re-index: `npm run index-pdf`
-- Check `CHROMA_HOST`, `CHROMA_PORT` in .env
+- Verify Milvus is running
+- Check collection exists (use Milvus CLI or Attu web UI)
+- Re-index: `npm run index-pdf` or `npm run index-dmbj`
+- Check `MILVUS_HOST`, `MILVUS_PORT` in .env
+- Verify OpenAI API key is valid
 
 ### Mem0 API Key Not Found
 - Check `.env` has `MEM0_API_KEY=m0-...`
@@ -442,46 +317,17 @@ docker restart chromadb
 - Verify agent is registered in `src/mastra/index.ts`
 - Check agent is added to `agents: { ... }` in Secretary Agent definition
 
-### Milvus Connection Issues
+### Redis Cache Issues
 ```bash
-# Check if Milvus is running
-docker ps | grep milvus
+# Check Redis connection
+docker ps | grep redis
+redis-cli -h localhost -p 6379 ping
 
-# Check Milvus health
-curl http://localhost:9091/healthz
-
-# Restart Milvus
-docker-compose restart
+# Clear cache
+redis-cli -h localhost -p 6379 FLUSHDB
 ```
 
-### Knowledge Book Agent Returns No Results
-- Verify Milvus is running: `docker ps | grep milvus`
-- Check collection exists: Use Milvus CLI or Attu (web UI)
-- Re-index: `npm run index-dmbj`
-- Check environment variables: `MILVUS_HOST`, `MILVUS_PORT`, `MILVUS_COLLECTION`
-- Verify OpenAI API key is valid: `echo $OPENAI_API_KEY`
-- Test with logging: `npm run test:knowledge-book`
-
 ### RAG Performance Issues
-**If retrieval is too slow:**
-- Disable Query Rewriting: `ENABLE_QUERY_REWRITE=false`
-- Disable Reranker: `ENABLE_RERANKER=false`
-- Check Redis cache is working (should see "⚡ 从缓存返回结果" in logs)
-- Reduce nprobe in search params (trade accuracy for speed)
-
-**If retrieval accuracy is poor:**
-- Enable all optimizations: `ENABLE_QUERY_REWRITE=true ENABLE_RERANKER=true`
-- Increase query variations: `QUERY_REWRITE_COUNT=3`
-- Increase retrieval candidates: Modify `topK * 2` to `topK * 3` in code
-- Check chunk quality: Review indexed content
-
-**If costs are too high:**
-- Enable caching properly (check Redis connection)
-- Reduce `QUERY_REWRITE_COUNT` to 1 or disable
-- Disable Reranker for non-critical queries
-- Lower cache similarity threshold: `CACHE_SIMILARITY_THRESHOLD=0.40`
-
-## Additional Documentation
-
-- `README.md` - User-facing documentation
-- `env.example` - Environment variable template
+**Too slow:** Disable Query Rewriting (`ENABLE_QUERY_REWRITE=false`) and/or Reranker (`ENABLE_RERANKER=false`)
+**Poor accuracy:** Enable all optimizations, increase `QUERY_REWRITE_COUNT`
+**High costs:** Enable caching properly, reduce query variations, use embedding reranker
