@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+        "todo-mcp": {
+            "command": "node",
+            "args": [
+                "E:/todo-mcp/build/index.js"
+            ]
+        }
+    }
+}
+

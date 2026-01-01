@@ -1,0 +1,28 @@
+{
+  "name": "todo-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for managing daily to-dos",
+  "type": "module",
+  "bin": {
+    "todo-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "dev": "ts-node --esm src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "uuid": "^13.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.9.3",
+    "ts-node": "^10.9.2"
+  }
+}

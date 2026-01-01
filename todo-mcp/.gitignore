@@ -1,0 +1,32 @@
+# 依赖
+node_modules/
+
+# 编译输出
+build/
+dist/
+*.js
+*.js.map
+*.d.ts
+
+# 用户数据（持久化文件）
+todos.json
+
+# 日志
+*.log
+npm-debug.log*
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 环境变量
+.env
+.env.local
+
