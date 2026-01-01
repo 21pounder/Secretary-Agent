@@ -14,9 +14,10 @@ An intelligent multi-agent assistant built on the Mastra framework, integrating 
 
 ### Integrated MCP Services
 - **Hot News MCP** - Trending news via Exa API
-- **12306 MCP** - China Railway train ticket queries
+- **12306 MCP** - China Railway train ticket queries (currently disabled)
 - **DBHub MCP** - MySQL database connections
 - **BallDontLie MCP** - Multi-league sports data (NBA/NFL/MLB/NHL/CBA)
+- **TODO MCP** - Personal todo management via natural language (currently disabled)
 
 ### Core Capabilities
 - 📊 Database queries and SQL analysis
@@ -26,6 +27,7 @@ An intelligent multi-agent assistant built on the Mastra framework, integrating 
 - 📖 **RAG-based Q&A with Milvus vector database** (Employee Handbook & Knowledge Book)
 - 🤖 Intelligent Agent-to-Agent collaboration (A2A)
 - 💾 Conversation memory with LibSQL
+- ✅ Personal todo management (TODO MCP - currently disabled)
 
 ## 📋 Prerequisites
 

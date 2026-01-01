@@ -66,7 +66,7 @@ npm run index-dmbj   # Novel content → Milvus (knowledge_book collection)
 - **Delegates to Employee Rules Agent:** HR policy, employee handbook queries (Milvus RAG)
 - **Delegates to Knowledge Book Agent:** Novel content queries (Milvus RAG with advanced optimizations)
 
-**Note:** 12306-mcp (train tickets) is currently disabled due to server connection timeout issues.
+**Note:** 12306-mcp (train tickets) and todo-mcp (personal todos) are currently disabled due to stability concerns.
 
 ### Critical Agent Delegation Rules
 
@@ -85,6 +85,7 @@ All MCP servers are configured in `src/mastra/config/config.ts`:
 - `dbhub` - MySQL connection (uses MYSQL_DSN)
 - `balldontlie` - Sports data (uses BALLDONTLIE_API_KEY or RAPIDAPI_KEY)
 - `12306-mcp` - China Railway tickets (currently disabled)
+- `todo-mcp` - Personal todo management (currently disabled, located in `todo-mcp/` directory)
 
 **Custom Tools** (not MCP-based):
 - `weather-tool` - Weather queries via Open-Meteo API (free, no API key required)
